@@ -26,8 +26,8 @@ export async function POST(req: Request) {
 
       const prompt = `分析餐點：${foodText}。請嚴格僅回傳 JSON 格式：{"calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字, "fiber": 數字}`;
       
-      // 💡 終極修正：切換到正式版 v1 網址，並使用最穩定的標準模型名稱
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent`;
+      // 使用正確且對應介面的 gemini-3.5-flash 模型
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -54,7 +54,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // 寫入 Supabase
     const { error } = await supabase.from('meals').insert([{
       user_id: userId,
       date: date,
