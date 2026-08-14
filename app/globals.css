@@ -4,4 +4,11 @@
   html {
     font-size: 16px; 
   }
+
+  /* 把輸入框的「內部空間(padding)」與「字體大小」強制撐開 */
+  input, textarea, select {
+    padding: 12px 16px;
+    font-size: 18px;
+    line-height: 1.5;
+  }
 }
