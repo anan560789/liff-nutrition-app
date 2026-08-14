@@ -3,74 +3,66 @@
 import { supabase } from '../lib/supabase';
 
 export async function saveMealRecord(formData: FormData) {
-  const userId = (formData.get('userId') as string) || 'test-user-123'; 
-  const date = formData.get('date') as string;
-  const mealType = formData.get('mealType') as string || formData.get('mealType') as string;
-  const recordType = formData.get('recordType') as string; 
-  const personName = formData.get('personName') as string || null; 
-  const personAge = formData.get('personAge') ? parseInt(formData.get('personAge') as string) : null; 
+  const userId = formData.get('userId') as string || 'test-user-123'; 
+  const recordType = formData.get('recordType') as string;
   const foodText = formData.get('foodText') as string;
-  const notes = formData.get('notes') as string;
-  const cost = parseInt(formData.get('cost') as string) || 0;  
 
   let nutrients = null;
 
   if (recordType === 'personal') {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error('找不到 Gemini API Key');
+      if (!apiKey) throw new Error('API Key 未設定');
+
+      const prompt = `分析餐點：${foodText}。回傳JSON: {"calories":0, "protein":0, "carbs":0, "fat":0, "fiber":0}`;
+
+      // 針對 AQ... 類型的授權金鑰，必須使用 Bearer 格式
+      // 網址不帶 ?key=
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
       
-      const prompt = `分析餐點：${foodText}。請嚴格僅回傳 JSON 格式：{"calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字, "fiber": 數字}`;
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-      // 加入 4 秒強制超時機制，保證畫面絕對不會無限轉圈卡死
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}` // 這是處理 AQ... 金鑰的正確方式
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: 'application/json' }
         }),
-        signal: AbortSignal.timeout(4000) 
+        signal: AbortSignal.timeout(5000) // 強制 5 秒超時
       });
 
+      // 檢查回應狀態
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`AI 服務回應錯誤 (${response.status}): ${errText}`);
+        console.error('API 錯誤回應:', errText); // 這會顯示在 Cloudflare Logs
+        throw new Error(`AI 拒絕存取 (${response.status})`);
       }
 
       const data = await response.json();
       const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (textResult) {
-        nutrients = JSON.parse(textResult);
-      }
+      nutrients = JSON.parse(textResult);
+
     } catch (error: any) {
-      console.error('AI 處理失敗:', error);
-      // 如果 AI 逾時或失敗，直接回傳錯誤讓前端跳出提示，不再默默卡住
-      return { success: false, error: 'AI 分析失敗: ' + (error.message || '連線逾時') };
+      console.error('執行發生錯誤:', error.message);
+      return { success: false, error: error.message };
     }
   }
 
-  // 將資料寫入 Supabase
-  const { error } = await supabase
-    .from('meals')
-    .insert([{
-      user_id: userId,
-      date: date,
-      meal_type: mealType,
-      record_type: recordType,
-      person_name: personName,
-      person_age: personAge,
-      food_text: foodText,
-      notes: notes,
-      cost: cost,
-      nutrients: nutrients 
-    }]);
+  // 資料庫寫入
+  const { error } = await supabase.from('meals').insert([{
+    user_id: userId,
+    date: formData.get('date'),
+    meal_type: formData.get('mealType'),
+    record_type: recordType,
+    person_name: formData.get('personName'),
+    person_age: formData.get('personAge'),
+    food_text: foodText,
+    notes: formData.get('notes'),
+    cost: parseInt(formData.get('cost') as string),
+    nutrients
+  }]);
 
-  if (error) {
-    return { success: false, error: '資料庫寫入失敗: ' + error.message };
-  }
-
-  return { success: true };
+  return error ? { success: false, error: error.message } : { success: true };
 }
