@@ -17,28 +17,26 @@ export default function DailyMealsPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col max-w-md mx-auto shadow-lg relative">
-      <header className="bg-white p-4 flex items-center shadow-sm relative">
-        <button
-          onClick={() => router.back()}
-          className="absolute left-4 p-2 text-gray-500 hover:text-gray-700"
-        >
-          <ChevronLeft />
+    <main className="min-h-screen bg-gray-50 flex flex-col max-w-md mx-auto shadow-lg">
+      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative">
+        <button onClick={() => router.back()} className="absolute left-4 p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+          <ChevronLeft size={26} />
         </button>
-        <h1 className="text-xl font-bold text-gray-800 w-full text-center">
-          {date}
-        </h1>
+        <h1 className="text-lg font-bold text-gray-800">{date}</h1>
       </header>
       
-      <div className="p-4 flex flex-col gap-4 mt-4">
+      {/* 這裡強制使用 w-full 讓按鈕撐滿左右寬度，並加大內距 p-6 */}
+      <div className="p-5 flex flex-col gap-4 mt-4 w-full">
         {meals.map((meal) => (
           <button
             key={meal.id}
             onClick={() => router.push(`/date/${date}/${meal.id}`)}
-            className="bg-white p-6 rounded-2xl shadow-sm text-lg font-bold text-gray-700 active:scale-95 transition-transform flex justify-between items-center hover:bg-green-50"
+            className="w-full bg-white p-6 rounded-2xl shadow-sm text-xl font-bold text-gray-700 active:scale-95 transition-transform flex justify-between items-center border border-gray-100"
           >
             <span>{meal.name}</span>
-            <span className="text-sm font-normal text-green-600">去紀錄 ➔</span>
+            <span className="text-sm font-normal text-green-600 bg-green-50 px-4 py-2 rounded-full">
+              去紀錄 ➔
+            </span>
           </button>
         ))}
       </div>

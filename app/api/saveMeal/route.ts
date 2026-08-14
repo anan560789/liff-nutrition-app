@@ -25,14 +25,15 @@ export async function POST(req: Request) {
       }
 
       const prompt = `分析餐點：${foodText}。請嚴格僅回傳 JSON 格式：{"calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字, "fiber": 數字}`;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+      
+      // 💡 修正點：加上 -latest 確保 Google 能夠精準找到最新版的模型
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`;
 
-      // 核心解法：移除 Bearer 和 ?key，統一使用 x-goog-api-key 標頭
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey // <--- Google 官方最強萬用金鑰標頭
+          'x-goog-api-key': apiKey
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
 
       if (!response.ok) {
         const errText = await response.text();
-        return NextResponse.json({ success: false, error: `AI 拒絕存取 (${response.status}): ${errText}` }, { status: 500 });
+        return NextResponse.json({ success: false, error: `AI 模型錯誤 (${response.status}): ${errText}` }, { status: 500 });
       }
 
       const data = await response.json();
