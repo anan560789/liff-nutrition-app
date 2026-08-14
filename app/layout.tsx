@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   description: "Jasmine 的專屬 AI 營養管家與飲食花費紀錄",
   openGraph: {
     images: ['/jasmine.jpg'], // 告訴 LINE 預覽圖在哪裡
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
