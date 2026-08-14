@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2 } from 'lucide-react';
-import { saveMealRecord } from '../../../actions'; // 引入我們剛寫好的後端邏輯
-import { useState, useEffect } from 'react';
+import { saveMealRecord } from '../../../actions';
 import liff from '@line/liff';
 
 export const runtime = 'edge';
