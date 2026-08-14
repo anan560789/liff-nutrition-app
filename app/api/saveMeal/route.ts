@@ -10,71 +10,59 @@ export async function POST(req: Request) {
     const date = formData.get('date') as string;
     const mealType = formData.get('mealType') as string;
     const recordType = formData.get('recordType') as string;
-    const personName = (formData.get('personName') as string) || null;
-    const personAge = formData.get('personAge') ? parseInt(formData.get('personAge') as string) : null;
     const foodText = formData.get('foodText') as string;
-    const notes = formData.get('notes') as string;
-    const cost = parseInt(formData.get('cost') as string) || 0;
-
-    let nutrients = null;
-
-    if (recordType === 'personal') {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return NextResponse.json({ success: false, error: 'Cloudflare 找不到 Gemini API Key' }, { status: 400 });
-      }
-
-      const prompt = `分析餐點：${foodText}。請嚴格僅回傳 JSON 格式：{"calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字, "fiber": 數字}`;
-      
-      // 使用正確且對應介面的 gemini-3.5-flash 模型
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' }
-        }),
-        signal: AbortSignal.timeout(5000)
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        return NextResponse.json({ success: false, error: `AI 模型錯誤 (${response.status}): ${errText}` }, { status: 500 });
-      }
-
-      const data = await response.json();
-      const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (textResult) {
-        nutrients = JSON.parse(textResult);
-      }
+    
+    // 取得金鑰
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ success: false, error: '未設定 API Key' }, { status: 400 });
     }
 
+    // 💡 關鍵修正：
+    // 1. 使用 v1beta (v1 經常因為權限鎖定而報錯)
+    // 2. 這是 REST API 呼叫 gemini-1.5-flash 最標準的寫法
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 授權金鑰 (AQ...) 在 REST API 下，通常需要放在 Authorization Header
+        'Authorization': `Bearer ${apiKey}` 
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `分析餐點：${foodText}。回傳JSON: {"calories":0, "protein":0, "carbs":0, "fat":0, "fiber":0}` }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      }),
+      signal: AbortSignal.timeout(10000) // 延長到 10 秒
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json({ 
+        success: false, 
+        error: `Google API 錯誤: ${errorData.error?.message || response.statusText}` 
+      }, { status: 500 });
+    }
+
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text;
+    const nutrients = JSON.parse(text);
+
+    // 寫入 Supabase
     const { error } = await supabase.from('meals').insert([{
       user_id: userId,
       date: date,
       meal_type: mealType,
       record_type: recordType,
-      person_name: personName,
-      person_age: personAge,
       food_text: foodText,
-      notes: notes,
-      cost: cost,
       nutrients: nutrients
     }]);
 
-    if (error) {
-      return NextResponse.json({ success: false, error: '資料庫寫入失敗: ' + error.message }, { status: 500 });
-    }
-
+    if (error) throw error;
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('伺服器錯誤:', error);
-    return NextResponse.json({ success: false, error: error.message || '未知伺服器錯誤' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
