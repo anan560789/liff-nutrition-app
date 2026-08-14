@@ -3,6 +3,8 @@
 import { supabase } from '../lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export const runtime = 'edge';
+
 export async function saveMealRecord(formData: FormData) {
   const date = formData.get('date') as string;
   const mealType = formData.get('mealType') as string;

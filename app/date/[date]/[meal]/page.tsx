@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { saveMealRecord } from '../../../actions'; // 引入我們剛寫好的後端邏輯
 
+export const runtime = 'edge';
+
 export default function MealInputPage() {
   const params = useParams();
   const router = useRouter();

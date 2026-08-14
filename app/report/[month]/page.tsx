@@ -6,6 +6,8 @@ import { supabase } from '../../../lib/supabase';
 import { toPng } from 'html-to-image'; // 換成這個現代的套件
 import jsPDF from 'jspdf';
 
+export const runtime = 'edge';
+
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();

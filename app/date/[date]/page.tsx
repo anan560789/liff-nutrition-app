@@ -4,6 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Coffee, Sun, Moon } from 'lucide-react';
 import Link from 'next/link';
 
+export const runtime = 'edge';
+
 export default function DailyView() {
   const params = useParams();
   const router = useRouter();
