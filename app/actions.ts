@@ -11,7 +11,7 @@ export async function saveMealRecord(formData: FormData) {
   const personAge = formData.get('personAge') ? parseInt(formData.get('personAge') as string) : null; 
   const foodText = formData.get('foodText') as string;
   const notes = formData.get('notes') as string;
-  const cost = parseInt(formData.get('cost') as string) || 0;
+  const cost = parseInt(formData.get('cost') as string) || 0;  
 
   let nutrients = null;
 
