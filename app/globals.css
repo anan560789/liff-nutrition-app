@@ -4,13 +4,13 @@
 
 @layer base {
   html {
-    /* 將網頁預設基礎字體從 16px 放大到 18px。
-       這會讓所有 Tailwind 的 text-sm, text-base, p-4 等比例放大！ */
+    /* 將網頁預設基礎字體從 16px 放大到 18px */
     font-size: 18px; 
   }
 
-  /* 特別針對輸入框與多行文字框強制放大字體並加寬內距，讓手機打字更舒服 */
+  /* 改用純 CSS 屬性，完全避開 Tailwind 的 @apply 編譯地雷 */
   input, textarea, select {
-    @apply text-lg p-3;
+    font-size: 1.125rem; /* 相當於原本的 text-lg */
+    padding: 0.75rem;    /* 相當於原本的 p-3 */
   }
 }
