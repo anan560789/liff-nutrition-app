@@ -1,16 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
   html {
-    /* 將網頁預設基礎字體從 16px 放大到 18px */
-    font-size: 18px; 
-  }
-
-  /* 改用純 CSS 屬性，完全避開 Tailwind 的 @apply 編譯地雷 */
-  input, textarea, select {
-    font-size: 1.125rem; /* 相當於原本的 text-lg */
-    padding: 0.75rem;    /* 相當於原本的 p-3 */
+    font-size: 16px; 
   }
 }
