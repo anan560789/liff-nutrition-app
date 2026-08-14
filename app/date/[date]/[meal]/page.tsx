@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { saveMealRecord } from '../../../actions';
-import liff from '@line/liff';
 
 export const runtime = 'edge';
 
@@ -14,18 +13,10 @@ export default function MealInputPage() {
   const [userId, setUserId] = useState('test-user-123');
 
   useEffect(() => {
-    const initLiff = async () => {
-      try {
-        await liff.init({ liffId: '2011063080-0aLaCeqt' }); // 你的專屬 LIFF ID
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
-          setUserId(profile.userId); // 成功抓取真實 LINE ID
-        }
-      } catch (error) {
-        console.error('LIFF 初始化失敗', error);
-      }
-    };
-    initLiff();
+    const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('line_user_id') : null;
+    if (storedUserId) {
+      setUserId(storedUserId);
+    }
   }, []);
   
   const params = useParams();

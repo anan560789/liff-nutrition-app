@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import liff from '@line/liff';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Calendar from 'react-calendar';
@@ -8,6 +10,23 @@ import { CalendarDays, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
+  
+  useEffect(() => {
+    const initLiff = async () => {
+      try {
+        await liff.init({ liffId: '2011063080-0aLaCeqt' });
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          // 抓到 ID 後，偷偷存進手機瀏覽器的暫存空間裡
+          localStorage.setItem('line_user_id', profile.userId);
+        }
+      } catch (error) {
+        console.error('LIFF 初始化失敗', error);
+      }
+    };
+    initLiff();
+  }, []);
+
   const router = useRouter();
   const [date, setDate] = useState<Date>(new Date());
 
