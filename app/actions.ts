@@ -17,7 +17,6 @@ export async function saveMealRecord(formData: FormData) {
 
   let nutrients = null;
 
-  // 如果是「個人紀錄」，使用原生 fetch 呼叫 Gemini API（完美支援 AQ. 金鑰與 Edge 環境）
   if (recordType === 'personal') {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
@@ -33,26 +32,32 @@ export async function saveMealRecord(formData: FormData) {
         {"calories": 總熱量大卡, "protein": 蛋白質克, "carbs": 碳水化合物克, "fat": 脂肪克, "fiber": 膳食纖維克}
       `;
 
-      // 直接用原生的 fetch 請求 Google Gemini REST API
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }]
-              }
-            ],
-            generationConfig: {
-              responseMimeType: 'application/json'
+      // 根據金鑰格式自動切換驗證方式（支援 AQ. 憑證與傳統 AIzaSy 金鑰）
+      let url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (apiKey.startsWith('AQ.')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        url += `?key=${apiKey}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
             }
-          })
-        }
-      );
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
+      });
 
       if (!response.ok) {
         const errText = await response.text();
@@ -74,7 +79,6 @@ export async function saveMealRecord(formData: FormData) {
     }
   }
 
-  // 將所有資料寫入 Supabase
   const { error } = await supabase
     .from('meals')
     .insert([
