@@ -1,0 +1,86 @@
+export const runtime = 'edge';
+
+import { NextResponse } from 'next/server';
+import { supabase } from '../../../lib/supabase';
+
+export async function POST(req: Request) {
+  try {
+    const formData = await req.formData();
+    const userId = (formData.get('userId') as string) || 'test-user-123';
+    const date = formData.get('date') as string;
+    const mealType = formData.get('mealType') as string;
+    const recordType = formData.get('recordType') as string;
+    const personName = (formData.get('personName') as string) || null;
+    const personAge = formData.get('personAge') ? parseInt(formData.get('personAge') as string) : null;
+    const foodText = formData.get('foodText') as string;
+    const notes = formData.get('notes') as string;
+    const cost = parseInt(formData.get('cost') as string) || 0;
+
+    let nutrients = null;
+
+    if (recordType === 'personal') {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json({ success: false, error: 'Cloudflare 找不到 Gemini API Key' }, { status: 400 });
+      }
+
+      const prompt = `分析餐點：${foodText}。請嚴格僅回傳 JSON 格式：{"calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字, "fiber": 數字}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+      
+      let finalUrl = url;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      // 自動相容你那組 AQ. 開頭的金鑰
+      if (apiKey.startsWith('AQ.')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        finalUrl += `?key=${apiKey}`;
+      }
+
+      const response = await fetch(finalUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' }
+        }),
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return NextResponse.json({ success: false, error: `AI 拒絕存取 (${response.status}): ${errText}` }, { status: 500 });
+      }
+
+      const data = await response.json();
+      const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (textResult) {
+        nutrients = JSON.parse(textResult);
+      }
+    }
+
+    // 寫入 Supabase
+    const { error } = await supabase.from('meals').insert([{
+      user_id: userId,
+      date: date,
+      meal_type: mealType,
+      record_type: recordType,
+      person_name: personName,
+      person_age: personAge,
+      food_text: foodText,
+      notes: notes,
+      cost: cost,
+      nutrients: nutrients
+    }]);
+
+    if (error) {
+      return NextResponse.json({ success: false, error: '資料庫寫入失敗: ' + error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (error: any) {
+    console.error('伺服器錯誤:', error);
+    return NextResponse.json({ success: false, error: error.message || '未知伺服器錯誤' }, { status: 500 });
+  }
+}

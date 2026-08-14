@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2, Users, User } from 'lucide-react';
-import { saveMealRecord } from '../../../actions';
 
 export const runtime = 'edge';
 
@@ -31,21 +30,31 @@ export default function MealInputPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(e.currentTarget);
-    formData.append('date', date);
-    formData.append('mealType', meal);
-    formData.append('recordType', recordType); // 把紀錄類型送給後端
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.append('date', date);
+      formData.append('mealType', meal);
+      formData.append('recordType', recordType);
 
-    const result = await saveMealRecord(formData);
+      // 直接把資料呼叫我們剛剛建立的專屬 API
+      const response = await fetch('/api/saveMeal', {
+        method: 'POST',
+        body: formData,
+      });
 
-    if (result.success) {
-      alert('紀錄成功！');
-      router.push(`/date/${date}`); 
-    } else {
-      alert('紀錄失敗：' + result.error);
+      const result = await response.json();
+
+      if (result.success) {
+        alert('紀錄成功！');
+        router.push(`/date/${date}`); 
+      } else {
+        alert('紀錄失敗：' + result.error);
+      }
+    } catch (err) {
+      alert('發生網路錯誤，請稍後再試');
+    } finally {
+      setIsSubmitting(false); // 確保轉圈圈一定會消失
     }
-    
-    setIsSubmitting(false);
   };
 
   return (
