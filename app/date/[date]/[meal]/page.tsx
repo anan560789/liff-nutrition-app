@@ -103,8 +103,18 @@ export default function MealRecordPage() {
             <label className="text-gray-700 font-bold text-lg">花費金額 (元)</label>
             <input name="cost" type="number" required placeholder="例如：150" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
-          <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 text-white font-bold text-2xl py-5 rounded-xl mt-4 flex justify-center items-center gap-2 shadow-lg">
-            {isSubmitting ? <><Loader2 className="animate-spin" /> 處理中...</> : '分析營養並儲存'}
+          <button 
+            type="submit" 
+            disabled={isSubmitting} 
+            className={`w-full text-white font-bold text-2xl py-5 rounded-xl mt-4 flex justify-center items-center gap-2 shadow-lg transition-colors ${
+              recordType === 'personal' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {isSubmitting ? (
+              <><Loader2 className="animate-spin" /> 處理中...</>
+            ) : (
+              recordType === 'personal' ? '分析營養並儲存' : '儲存全家紀錄'
+            )}
           </button>
         </form>
       </div>

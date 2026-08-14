@@ -18,6 +18,7 @@ export async function POST(req: Request) {
 
     let nutrients = null;
 
+    // 只有「個人專屬」才需要跑 AI 營養分析
     if (recordType === 'personal') {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -25,15 +26,13 @@ export async function POST(req: Request) {
       }
 
       const prompt = `分析餐點：${foodText}。請嚴格僅回傳 JSON 格式：{"calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字, "fiber": 數字}`;
-      
-      // 使用你截圖中顯示的 3.5 Flash-Lite 正式模型名稱
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash-lite:generateContent`;
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey // 使用標準金鑰驗證
+          'x-goog-api-key': apiKey
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -53,6 +52,9 @@ export async function POST(req: Request) {
         const cleanText = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
         nutrients = JSON.parse(cleanText);
       }
+    } else {
+      // 「全家紀錄」模式：僅作為紀錄用途，不進行營養素統計，nutrients 保持 null 留白
+      nutrients = null;
     }
 
     const { error } = await supabase.from('meals').insert([{
