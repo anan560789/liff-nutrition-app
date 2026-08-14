@@ -22,7 +22,9 @@ export default function Home() {
       <header className="bg-white p-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
           <CalendarDays className="text-green-600" />
-          <h1 className="text-xl font-bold text-gray-800">飲食紀錄</h1>
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          Jasmine專屬飲食記錄
+          </h1>
         </div>
         <Link href="/stats" className="text-gray-500 hover:text-green-600">
           <BarChart3 />
