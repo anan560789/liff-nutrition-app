@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 export async function saveMealRecord(formData: FormData) {
   const userId = (formData.get('userId') as string) || 'test-user-123'; 
   const date = formData.get('date') as string;
-  const mealType = formData.get('mealType'] as string || formData.get('mealType') as string;
+  const mealType = formData.get('mealType') as string || formData.get('mealType') as string;
   const recordType = formData.get('recordType') as string; 
   const personName = formData.get('personName') as string || null; 
   const personAge = formData.get('personAge') ? parseInt(formData.get('personAge') as string) : null; 
