@@ -4,10 +4,31 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { saveMealRecord } from '../../../actions'; // 引入我們剛寫好的後端邏輯
+import { useState, useEffect } from 'react';
+import liff from '@line/liff';
 
 export const runtime = 'edge';
 
 export default function MealInputPage() {
+  
+  // 建立存放 LINE ID 的狀態
+  const [userId, setUserId] = useState('test-user-123');
+
+  useEffect(() => {
+    const initLiff = async () => {
+      try {
+        await liff.init({ liffId: '2011063080-0aLaCeqt' }); // 你的專屬 LIFF ID
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          setUserId(profile.userId); // 成功抓取真實 LINE ID
+        }
+      } catch (error) {
+        console.error('LIFF 初始化失敗', error);
+      }
+    };
+    initLiff();
+  }, []);
+  
   const params = useParams();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,6 +110,8 @@ export default function MealInputPage() {
             placeholder="例如：150"
           />
         </div>
+
+        <input type="hidden" name="userId" value={userId} />
 
         <button 
           type="submit" 

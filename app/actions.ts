@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function saveMealRecord(formData: FormData) {
+  // 新增這行：從表單接收 userId，如果沒抓到就用預設值（方便你在電腦瀏覽器上測試）
+  const userId = formData.get('userId') as string || 'test-user-123'; 
+  
   const date = formData.get('date') as string;
   const mealType = formData.get('mealType') as string;
   const foodText = formData.get('foodText') as string;
@@ -18,8 +21,6 @@ export async function saveMealRecord(formData: FormData) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
-    // 改用清單中的 gemini-3.5-flash
     const model = genAI.getGenerativeModel({ 
       model: "gemini-3.5-flash",
       generationConfig: {
@@ -48,7 +49,7 @@ export async function saveMealRecord(formData: FormData) {
     .from('meals')
     .insert([
       {
-        user_id: 'test-user-123', 
+        user_id: userId, // 這裡已經換成動態抓取的 LINE ID 了！
         date: date,
         meal_type: mealType,
         food_text: foodText,
