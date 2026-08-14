@@ -1,144 +1,134 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ChevronLeft, Loader2, Users, User } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
-import { toPng } from 'html-to-image'; // 換成這個現代的套件
-import jsPDF from 'jspdf';
 
 export const runtime = 'edge';
 
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
-  const month = params.month as string; 
+  const month = params.month as string;
+
   const [meals, setMeals] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
-  
-  const reportRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchMeals() {
-      const startDate = `${month}-01`;
-      const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0).toISOString().split('T')[0];
-
-      const { data } = await supabase
+    const fetchMeals = async () => {
+      const userId = typeof window !== 'undefined' ? localStorage.getItem('line_user_id') : null;
+      
+      let query = supabase
         .from('meals')
         .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .like('date', `${month}-%`)
         .order('date', { ascending: true });
 
-      if (data) setMeals(data);
-      setIsLoading(false);
-    }
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query;
+
+      if (data) {
+        setMeals(data);
+      }
+      setLoading(false);
+    };
     fetchMeals();
   }, [month]);
 
-  // 處理下載 PDF 的邏輯
-  const handleDownloadPDF = async () => {
-    if (!reportRef.current) return;
-    setIsDownloading(true);
-    
-    try {
-      // 1. 使用 html-to-image 產生高畫質截圖 (完美支援現代 CSS)
-      const dataUrl = await toPng(reportRef.current, { 
-        quality: 1, 
-        pixelRatio: 2,
-        backgroundColor: '#ffffff' // 確保背景是純白
-      });
-      
-      // 2. 建立虛擬圖片以取得實際長寬
-      const img = new window.Image();
-      img.src = dataUrl;
-      await new Promise((resolve) => { img.onload = resolve; });
-      
-      // 3. 建立 A4 尺寸的 PDF 文件
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      // 4. 計算圖片在 A4 紙上的比例
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (img.height * pdfWidth) / img.width;
-      
-      // 5. 將圖片貼上 PDF 並存檔
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`飲食月報表_${month}.pdf`);
-      
-    } catch (error) {
-      console.error('產生 PDF 失敗:', error);
-      alert('產生 PDF 失敗，請再試一次');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  if (isLoading) return <div className="p-8 text-center text-gray-500">報表產生中...</div>;
+  const totalCost = meals.reduce((sum, meal) => sum + (meal.cost || 0), 0);
+  const totalCalories = meals.reduce((sum, meal) => sum + (meal.nutrients?.calories || 0), 0);
 
   return (
-    <div className="bg-gray-100 min-h-screen p-4 flex flex-col items-center">
-      
-      {/* 頂部操作列 */}
-      <div className="w-full max-w-3xl flex justify-between items-center mb-4 print:hidden">
+    <main className="min-h-screen bg-gray-50 flex flex-col max-w-md mx-auto shadow-lg relative pb-10">
+      <header className="bg-white p-4 flex items-center shadow-sm sticky top-0 z-10">
         <button 
-          onClick={() => router.push('/')}
-          className="text-sm text-gray-600 hover:text-black font-medium"
+          onClick={() => router.back()} 
+          className="absolute left-4 p-2 text-gray-500 hover:text-gray-700"
         >
-          ← 返回首頁
+          <ChevronLeft />
         </button>
-        <div className="flex gap-2">
-          <button 
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-gray-400 active:scale-95 transition-transform"
-          >
-            {isDownloading ? '處理中...' : '儲存為 PDF (超商列印)'}
-          </button>
+        <h1 className="text-xl font-bold text-gray-800 w-full text-center">
+          {month} 月度報表
+        </h1>
+      </header>
+
+      {loading ? (
+        <div className="flex-1 flex justify-center items-center min-h-[50vh]">
+          <Loader2 className="animate-spin text-green-600 w-8 h-8" />
         </div>
-      </div>
+      ) : (
+        <div className="p-4 flex flex-col gap-4">
+          {/* 總計數據卡片 */}
+          <div className="bg-green-600 text-white p-6 rounded-2xl shadow-md flex justify-between items-center">
+            <div className="flex flex-col">
+              <span className="text-sm opacity-90">本月總花費</span>
+              <span className="text-2xl font-bold">${totalCost}</span>
+            </div>
+            <div className="flex flex-col text-right">
+              <span className="text-sm opacity-90">個人攝取熱量</span>
+              <span className="text-2xl font-bold">{totalCalories} <span className="text-sm font-normal">大卡</span></span>
+            </div>
+          </div>
 
-      {/* 報表內容 */}
-      <div ref={reportRef} className="w-full max-w-3xl bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">{month} 飲食與花費月報表</h1>
+          {/* 紀錄列表 */}
+          <h2 className="font-bold text-gray-700 mt-2">詳細紀錄 ({meals.length} 筆)</h2>
+          
+          <div className="flex flex-col gap-3">
+            {meals.length === 0 ? (
+              <p className="text-center text-gray-500 py-10">這個月還沒有任何紀錄喔！</p>
+            ) : (
+              meals.map((meal) => (
+                <div key={meal.id} className={`bg-white p-4 rounded-xl shadow-sm flex flex-col gap-2 border-l-4 ${meal.record_type === 'family' ? 'border-blue-500' : 'border-green-500'}`}>
+                  
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800">{meal.date}</span>
+                      <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">
+                        {meal.meal_type === 'breakfast' ? '早餐' : meal.meal_type === 'lunch' ? '午餐' : '晚餐'}
+                      </span>
+                      
+                      {meal.record_type === 'family' ? (
+                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-md flex items-center gap-1">
+                          <Users size={12} /> 全家
+                        </span>
+                      ) : (
+                        <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-md flex items-center gap-1">
+                          <User size={12} /> {meal.person_name || '個人'}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-bold text-gray-700">${meal.cost}</span>
+                  </div>
+                  
+                  <p className="text-gray-700 mt-1">{meal.food_text}</p>
+                  
+                  <div className="bg-gray-50 rounded-lg p-2 mt-2 text-sm text-gray-600">
+                    {meal.record_type === 'family' ? (
+                      <div className="text-center text-gray-400 italic py-2">
+                        — 全家聚餐，專心享受美食不計較熱量 —
+                      </div>
+                    ) : meal.nutrients ? (
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div><div className="text-xs text-gray-400">熱量</div><div className="font-semibold text-gray-700">{meal.nutrients.calories}</div></div>
+                        <div><div className="text-xs text-gray-400">蛋白</div><div className="font-semibold text-gray-700">{meal.nutrients.protein}g</div></div>
+                        <div><div className="text-xs text-gray-400">碳水</div><div className="font-semibold text-gray-700">{meal.nutrients.carbs}g</div></div>
+                        <div><div className="text-xs text-gray-400">脂肪</div><div className="font-semibold text-gray-700">{meal.nutrients.fat}g</div></div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400 italic py-1">無營養素資料</div>
+                    )}
+                  </div>
 
-        {meals.length === 0 ? (
-          <p className="text-center text-gray-500 py-10">這個月還沒有任何紀錄喔！</p>
-        ) : (
-          <table className="w-full border-collapse text-[10px] text-gray-700">
-            <thead>
-              <tr className="bg-gray-100 text-gray-800 border-b-2 border-gray-300">
-                <th className="p-1 text-left whitespace-nowrap">日期</th>
-                <th className="p-1 text-left whitespace-nowrap">餐別</th>
-                <th className="p-1 text-left">餐點</th>
-                <th className="p-1 text-left">備註</th>
-                <th className="p-1 text-right">花費</th>
-                <th className="p-1 text-right">熱量</th>
-                <th className="p-1 text-right">蛋白</th>
-                <th className="p-1 text-right">碳水</th>
-                <th className="p-1 text-right">脂肪</th>
-              </tr>
-            </thead>
-            <tbody>
-              {meals.map(meal => (
-                <tr key={meal.id} className="border-b border-gray-200">
-                  <td className="p-1 whitespace-nowrap">{meal.date.slice(5)}</td>
-                  <td className="p-1 whitespace-nowrap">
-                    {meal.meal_type === 'breakfast' ? '早餐' : meal.meal_type === 'lunch' ? '午餐' : '晚餐'}
-                  </td>
-                  <td className="p-1">{meal.food_text}</td>
-                  <td className="p-1 text-gray-500">{meal.notes || '-'}</td>
-                  <td className="p-1 text-right">${meal.cost}</td>
-                  <td className="p-1 text-right font-medium">{meal.nutrients?.calories || '-'}</td>
-                  <td className="p-1 text-right">{meal.nutrients?.protein || '-'}g</td>
-                  <td className="p-1 text-right">{meal.nutrients?.carbs || '-'}g</td>
-                  <td className="p-1 text-right">{meal.nutrients?.fat || '-'}g</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-    </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
