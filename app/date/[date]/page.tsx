@@ -17,24 +17,25 @@ export default function DailyMealsPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col max-w-md mx-auto shadow-lg">
-      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative">
-        <button onClick={() => router.back()} className="absolute left-4 p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-          <ChevronLeft size={26} />
+    <main className="min-h-screen bg-gray-50 block w-full max-w-md mx-auto shadow-lg">
+      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative w-full">
+        {/* 加入「返回」文字，用來確認有沒有更新成功 */}
+        <button onClick={() => router.back()} className="absolute left-2 p-2 text-gray-500 hover:bg-gray-100 rounded-lg flex items-center gap-1">
+          <ChevronLeft size={24} /> <span className="text-base font-bold">返回</span>
         </button>
-        <h1 className="text-lg font-bold text-gray-800">{date}</h1>
+        <h1 className="text-xl font-bold text-gray-800">{date}</h1>
       </header>
       
-      {/* 這裡強制使用 w-full 讓按鈕撐滿左右寬度，並加大內距 p-6 */}
-      <div className="p-5 flex flex-col gap-4 mt-4 w-full">
+      {/* 強制 px-4 左右留白，並讓按鈕 w-full 撐滿 */}
+      <div className="px-4 py-8 flex flex-col gap-6 w-full">
         {meals.map((meal) => (
           <button
             key={meal.id}
             onClick={() => router.push(`/date/${date}/${meal.id}`)}
-            className="w-full bg-white p-6 rounded-2xl shadow-sm text-xl font-bold text-gray-700 active:scale-95 transition-transform flex justify-between items-center border border-gray-100"
+            className="w-full bg-white p-6 rounded-2xl shadow-md text-2xl font-bold text-gray-700 active:scale-95 transition-transform flex justify-between items-center border border-gray-100"
           >
             <span>{meal.name}</span>
-            <span className="text-sm font-normal text-green-600 bg-green-50 px-4 py-2 rounded-full">
+            <span className="text-lg font-normal text-green-600 bg-green-50 px-5 py-2 rounded-full">
               去紀錄 ➔
             </span>
           </button>

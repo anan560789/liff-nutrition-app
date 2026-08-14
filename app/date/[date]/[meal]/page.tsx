@@ -43,64 +43,67 @@ export default function MealRecordPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col max-w-md mx-auto shadow-lg">
-      {/* 修復標題過大的問題，改為 text-lg */}
-      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative">
-        <button type="button" onClick={() => router.back()} className="absolute left-4 p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-          <ChevronLeft size={26} />
+    <main className="min-h-screen bg-gray-50 block w-full max-w-md mx-auto shadow-lg">
+      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative w-full">
+        {/* 加入「返回」文字 */}
+        <button type="button" onClick={() => router.back()} className="absolute left-2 p-2 text-gray-500 hover:bg-gray-100 rounded-lg flex items-center gap-1">
+          <ChevronLeft size={24} /> <span className="text-base font-bold">返回</span>
         </button>
-        <h1 className="text-lg font-bold text-gray-800">
+        <h1 className="text-xl font-bold text-gray-800">
           {date} {mealName}
         </h1>
       </header>
 
-      <div className="p-4 w-full">
-        {/* 強制雙切換按鈕等寬 (flex-1)、字體變大 (text-lg)、高度變高 (py-3) */}
+      {/* 強制 w-full 與 px-4 */}
+      <div className="w-full px-4 py-4">
+        
+        {/* 雙切換按鈕 */}
         <div className="flex bg-gray-200 rounded-xl p-1 mb-6 shadow-inner w-full">
           <button
             type="button"
             onClick={() => setRecordType('personal')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-lg font-bold transition-all ${
-              recordType === 'personal' ? 'bg-white text-green-700 shadow' : 'text-gray-500'
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-lg text-xl font-bold transition-all ${
+              recordType === 'personal' ? 'bg-white text-green-700 shadow-md' : 'text-gray-500'
             }`}
           >
-            <User size={22} /> 個人專屬
+            <User size={24} /> 個人專屬
           </button>
           <button
             type="button"
             onClick={() => setRecordType('family')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-lg font-bold transition-all ${
-              recordType === 'family' ? 'bg-white text-blue-700 shadow' : 'text-gray-500'
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-lg text-xl font-bold transition-all ${
+              recordType === 'family' ? 'bg-white text-blue-700 shadow-md' : 'text-gray-500'
             }`}
           >
-            <Users size={22} /> 全家紀錄
+            <Users size={24} /> 全家紀錄
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
-          <div className="flex gap-4">
+        {/* 表單區塊 */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
+          <div className="flex gap-4 w-full">
             <div className="flex-1 flex flex-col gap-2">
-              <label className="text-gray-700 font-bold">名字</label>
+              <label className="text-gray-700 font-bold text-lg">名字</label>
               <input name="personName" type="text" defaultValue="Jasmine" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
             </div>
             <div className="flex-1 flex flex-col gap-2">
-              <label className="text-gray-700 font-bold">年齡</label>
+              <label className="text-gray-700 font-bold text-lg">年齡</label>
               <input name="personAge" type="number" defaultValue="50" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-700 font-bold">這餐吃了什麼？</label>
-            <textarea name="foodText" required placeholder="例如：黑鮪魚壽司..." className="w-full border border-gray-300 rounded-xl h-28 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+          <div className="flex flex-col gap-2 w-full">
+            <label className="text-gray-700 font-bold text-lg">這餐吃了什麼？</label>
+            <textarea name="foodText" required placeholder="例如：黑鮪魚壽司..." className="w-full border border-gray-300 rounded-xl h-32 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-700 font-bold">備註</label>
-            <textarea name="notes" placeholder="例如：飯少..." className="w-full border border-gray-300 rounded-xl h-20 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+          <div className="flex flex-col gap-2 w-full">
+            <label className="text-gray-700 font-bold text-lg">備註</label>
+            <textarea name="notes" placeholder="例如：飯少..." className="w-full border border-gray-300 rounded-xl h-24 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-700 font-bold">花費金額 (元)</label>
+          <div className="flex flex-col gap-2 w-full">
+            <label className="text-gray-700 font-bold text-lg">花費金額 (元)</label>
             <input name="cost" type="number" required placeholder="例如：150" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
-          <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 text-white font-bold text-xl py-4 rounded-xl mt-4 flex justify-center items-center gap-2 shadow-md">
+          <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 text-white font-bold text-2xl py-5 rounded-xl mt-4 flex justify-center items-center gap-2 shadow-lg">
             {isSubmitting ? <><Loader2 className="animate-spin" /> 處理中...</> : '分析營養並儲存'}
           </button>
         </form>
