@@ -107,7 +107,7 @@ export default function StatsPage() {
     }
   };
 
-  // ✅ 升級：真正的 PDF 匯出引擎 (動態載入避開伺服器錯誤)
+  // ✅ 強化版：針對 LINE 內建瀏覽器優化的 PDF 匯出引擎
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
@@ -133,7 +133,23 @@ export default function StatsPage() {
       const pdfHeight = (img.height * pdfWidth) / img.width;
 
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${currentMonthStr}-營養記帳報表.pdf`);
+      
+      // 💡 關鍵修正：將 PDF 轉換為 Blob URL，並強制觸發原生下載連結
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `${currentMonthStr}-${reportTitle}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 作為備案：如果 a.click() 被 LINE 攔截，嘗試用新分頁開啟讓使用者手動儲存
+      setTimeout(() => {
+        URL.revokeObjectURL(pdfUrl);
+      }, 1000);
+
     } catch (error) {
       console.error('PDF 產生失敗:', error);
       alert('產生 PDF 失敗，請再試一次。');

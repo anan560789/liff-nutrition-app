@@ -36,7 +36,7 @@ export default function HomePage() {
       
       {/* 頂部 Header */}
       <header className="bg-white px-4 py-6 flex items-center justify-between shadow-sm w-full">
-        <h1 className="text-3xl sm:text-4xl font-black text-gray-800 tracking-wide flex-1">
+        <h1 className="text-2xl sm:text-3xl font-black text-gray-800 tracking-wide flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
           Jasmine專屬飲食紀錄
         </h1>
         <button 
