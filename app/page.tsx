@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
+
+export const runtime = 'edge';
 
 export default function HomePage() {
   const router = useRouter();
@@ -11,75 +13,83 @@ export default function HomePage() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const emptyDays = firstDay === 0 ? 6 : firstDay - 1; 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  
+  // 建立日曆陣列
+  const days = Array(firstDayOfMonth).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
 
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
+  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  
   const handleDayClick = (day: number) => {
-    const m = String(month + 1).padStart(2, '0');
-    const d = String(day).padStart(2, '0');
-    router.push(`/date/${year}-${m}-${d}`);
+    if (!day) return;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    router.push(`/date/${dateStr}`);
+  };
+
+  const isToday = (day: number) => {
+    if (!day) return false;
+    const today = new Date();
+    return today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col max-w-md mx-auto shadow-lg">
-      {/* 標題列：加入 truncate 防止折行，設定 text-lg 確保大小適中 */}
-      <header className="bg-white p-4 flex items-center justify-between shadow-sm">
-        <CalendarDays className="text-green-600 shrink-0" size={26} />
-        <h1 className="text-lg font-bold text-gray-800 truncate px-2">
-          Jasmine專屬飲食記錄
+    // 徹底拔除 max-w-md 限制，改為 w-full 滿版
+    <main className="min-h-screen bg-gray-50 flex flex-col w-full">
+      
+      {/* 頂部 Header - 字體放大到 text-3xl */}
+      <header className="bg-white px-4 py-6 flex items-center justify-between shadow-sm w-full">
+        <h1 className="text-3xl sm:text-4xl font-black text-gray-800 tracking-wide flex-1">
+          Jasmine專屬飲食紀錄
         </h1>
-        <button onClick={() => router.push('/stats')} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full shrink-0">
-          <BarChart3 size={26} />
+        <button 
+          onClick={() => router.push('/stats')} 
+          className="p-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl flex items-center justify-center shadow-sm transition-colors"
+        >
+          <BarChart3 size={32} />
         </button>
       </header>
-      
-      <div className="p-4 flex flex-col mt-4 bg-white m-4 rounded-3xl shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-6 px-2">
-          <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-            <ChevronLeft size={28} />
-          </button>
-          <h2 className="text-xl font-bold text-gray-800">
-            {year}年 {month + 1}月
-          </h2>
-          <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-            <ChevronRight size={28} />
-          </button>
-        </div>
 
-        <div className="grid grid-cols-7 gap-1 mb-2 text-center">
-          {['一', '二', '三', '四', '五', '六', '日'].map(day => (
-            <div key={day} className="text-sm font-bold text-gray-400 py-2">{day}</div>
+      {/* 月份切換區 - 按鈕與字體巨量放大 */}
+      <div className="flex justify-between items-center bg-white px-6 py-6 mt-2 shadow-sm w-full">
+        <button onClick={handlePrevMonth} className="p-4 text-gray-500 hover:bg-gray-100 rounded-full active:scale-95 transition-transform">
+          <ChevronLeft size={44} strokeWidth={2.5} />
+        </button>
+        <h2 className="text-4xl font-black text-gray-800">
+          {year}年 {month + 1}月
+        </h2>
+        <button onClick={handleNextMonth} className="p-4 text-gray-500 hover:bg-gray-100 rounded-full active:scale-95 transition-transform">
+          <ChevronRight size={44} strokeWidth={2.5} />
+        </button>
+      </div>
+
+      {/* 日曆方框 - 滿版寬度 */}
+      <div className="flex-1 w-full bg-white px-2 py-4 mt-2 shadow-sm">
+        <div className="grid grid-cols-7 gap-2 mb-4 w-full">
+          {['日', '一', '二', '三', '四', '五', '六'].map((d) => (
+            <div key={d} className="text-center text-2xl font-bold text-gray-400">
+              {d}
+            </div>
           ))}
         </div>
-
-        <div className="grid grid-cols-7 gap-2">
-          {Array.from({ length: emptyDays }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square"></div>
+        <div className="grid grid-cols-7 gap-2 w-full">
+          {days.map((day, index) => (
+            <div key={index} className="aspect-square">
+              {day && (
+                <button
+                  onClick={() => handleDayClick(day)}
+                  className={`w-full h-full flex items-center justify-center rounded-2xl text-3xl font-black transition-all active:scale-95 ${
+                    isToday(day)
+                      ? 'bg-green-500 text-white shadow-lg'
+                      : 'bg-gray-50 text-gray-800 hover:bg-gray-200 border-2 border-gray-100'
+                  }`}
+                >
+                  {day}
+                </button>
+              )}
+            </div>
           ))}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isToday = dateStr === todayStr;
-
-            return (
-              <button
-                key={day}
-                onClick={() => handleDayClick(day)}
-                className={`aspect-square flex items-center justify-center rounded-2xl text-lg font-medium transition-all active:scale-90
-                  ${isToday ? 'bg-green-500 text-white shadow-md font-bold' : 'text-gray-700 bg-gray-50 hover:bg-green-100'}
-                `}
-              >
-                {day}
-              </button>
-            );
-          })}
         </div>
       </div>
     </main>
