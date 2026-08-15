@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, FileDown, Loader2, List, User, Users, BrainCircuit, Trash2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 export const runtime = 'edge';
 
@@ -17,9 +16,11 @@ export default function StatsPage() {
   const [advice, setAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
-  // 用來截圖轉換 PDF 的目標區塊
   const reportRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // ✅ 新增：用來儲存 PDF 網址，並控制「下載完成視窗」的顯示
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const monday = useMemo(() => {
     const today = new Date();
@@ -107,7 +108,9 @@ export default function StatsPage() {
     }
   };
 
-  // ✅ 強化版：針對 LINE 內建瀏覽器優化的 PDF 匯出引擎
+  const reportTitle = filter === 'all' ? '總覽' : filter === 'personal' ? '個人報表' : '全家報表';
+
+  // ✅ 改寫：產生 PDF 後不直接存檔，而是打開下載視窗
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
@@ -116,7 +119,6 @@ export default function StatsPage() {
       const htmlToImage = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
 
-      // 將畫面轉為高解析度圖片
       const dataUrl = await htmlToImage.toPng(reportRef.current, {
         quality: 1,
         pixelRatio: 2,
@@ -127,28 +129,17 @@ export default function StatsPage() {
       img.src = dataUrl;
       await new Promise((resolve) => { img.onload = resolve; });
 
-      // 將圖片塞入 A4 PDF 檔案
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (img.height * pdfWidth) / img.width;
 
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
-      // 💡 關鍵修正：將 PDF 轉換為 Blob URL，並強制觸發原生下載連結
       const pdfBlob = pdf.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const url = URL.createObjectURL(pdfBlob);
       
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = `${currentMonthStr}-${reportTitle}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // 作為備案：如果 a.click() 被 LINE 攔截，嘗試用新分頁開啟讓使用者手動儲存
-      setTimeout(() => {
-        URL.revokeObjectURL(pdfUrl);
-      }, 1000);
+      // 將產生好的網址存起來，畫面會自動彈出下載視窗
+      setPdfUrl(url);
 
     } catch (error) {
       console.error('PDF 產生失敗:', error);
@@ -158,12 +149,9 @@ export default function StatsPage() {
     }
   };
 
-  const reportTitle = filter === 'all' ? '總覽' : filter === 'personal' ? '個人報表' : '全家報表';
-
   return (
-    // 把原本的 max-w-md mx-auto 刪除了，改為 w-full 絕對滿版
     <main className="min-h-screen bg-gray-50 flex flex-col w-full pb-10">
-      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative w-full">
+      <header className="bg-white p-4 flex items-center justify-center shadow-sm relative w-full print:hidden">
         <button onClick={() => router.back()} className="absolute left-2 p-2 text-gray-500 hover:bg-gray-100 rounded-lg flex items-center gap-1">
           <ChevronLeft size={32} /> <span className="text-xl font-bold">返回</span>
         </button>
@@ -176,14 +164,14 @@ export default function StatsPage() {
           <button 
             onClick={handleExportPDF} 
             disabled={isDownloading} 
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-xl active:scale-95 transition-transform shadow-md"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-xl active:scale-95 transition-transform shadow-md print:hidden"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={28} /> : <FileDown size={28} />}
-            {isDownloading ? '產生 PDF 中...' : '匯出報表 PDF'}
+            {isDownloading ? '產生 PDF 中...' : '產生報表 PDF'}
           </button>
         </div>
 
-        <div className="flex bg-gray-200 rounded-xl p-1 mb-6 shadow-inner w-full">
+        <div className="flex bg-gray-200 rounded-xl p-1 mb-6 shadow-inner w-full print:hidden">
           <button onClick={() => setFilter('all')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'all' ? 'bg-white text-gray-800 shadow-md' : 'text-gray-500'}`}><List size={18} /> 總覽</button>
           <button onClick={() => setFilter('personal')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'personal' ? 'bg-white text-green-700 shadow-md' : 'text-gray-500'}`}><User size={18} /> 個人</button>
           <button onClick={() => setFilter('family')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'family' ? 'bg-white text-blue-700 shadow-md' : 'text-gray-500'}`}><Users size={18} /> 全家</button>
@@ -192,7 +180,6 @@ export default function StatsPage() {
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-500" size={40} /></div>
         ) : (
-          /* 👇 將想要轉成 PDF 的報表區塊包在 ref 裡面 👇 */
           <div ref={reportRef} className="w-full bg-gray-50 p-2">
             
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -216,7 +203,6 @@ export default function StatsPage() {
                   <div className="flex justify-between text-base font-bold text-yellow-500"><span>🥑 脂肪</span><span>{weekNutrition.fat} g</span></div>
                   <div className="flex justify-between text-base font-bold text-green-600"><span>🥦 纖維</span><span>{weekNutrition.fiber} g</span></div>
                 </div>
-                {/* 排除在 PDF 列印之外的建議按鈕 */}
                 <div data-html2canvas-ignore>
                   <button onClick={getAIAdvice} disabled={loadingAdvice} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2 hover:bg-indigo-100 transition-colors">
                     {loadingAdvice ? <Loader2 className="animate-spin" size={24} /> : <BrainCircuit size={24} />}
@@ -252,7 +238,6 @@ export default function StatsPage() {
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="font-black text-xl text-gray-800">${meal.cost || 0}</span>
-                          {/* 刪除按鈕：截圖 PDF 時會自動隱藏 */}
                           <button 
                             data-html2canvas-ignore
                             onClick={() => handleDelete(meal.id)}
@@ -276,6 +261,40 @@ export default function StatsPage() {
           </div>
         )}
       </div>
+
+      {/* ✅ 新增：下載準備完成的彈出視窗 */}
+      {pdfUrl && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm flex flex-col items-center gap-5 text-center shadow-2xl">
+            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
+              <FileDown size={40} />
+            </div>
+            <h3 className="text-2xl font-black text-gray-800">報表準備就緒！</h3>
+            <p className="text-gray-600 text-base mb-2 font-bold leading-relaxed">
+              如果您正在使用 LINE 開啟，可能會無法直接下載。請點擊右上角「⋮」，選擇<strong className="text-red-500 text-lg">「以預設瀏覽器開啟」</strong>（Safari / Chrome）即可順利下載。
+            </p>
+            
+            {/* 實體 <a> 標籤強制觸發下載 */}
+            <a 
+              href={pdfUrl} 
+              download={`${currentMonthStr}-${reportTitle}.pdf`}
+              className="w-full bg-blue-600 text-white font-bold text-xl py-4 rounded-xl flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-lg"
+            >
+              點此儲存 PDF 檔案
+            </a>
+            
+            <button 
+              onClick={() => {
+                setPdfUrl(null);
+                URL.revokeObjectURL(pdfUrl);
+              }}
+              className="w-full bg-gray-100 text-gray-600 font-bold text-xl py-4 rounded-xl mt-2 active:scale-95 transition-transform"
+            >
+              關閉
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
