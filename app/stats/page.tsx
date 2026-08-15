@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, FileDown, Loader2, List, User, Users, BrainCircuit, Trash2 } from 'lucide-react';
+import { ChevronLeft, FileDown, Loader2, List, User, Users, BrainCircuit, Trash2, Share } from 'lucide-react';
 
 export const runtime = 'edge';
 
@@ -19,8 +19,8 @@ export default function StatsPage() {
   const reportRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   
-  // ✅ 新增：用來儲存 PDF 網址，並控制「下載完成視窗」的顯示
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // ✅ 新增：用來儲存產生好的 PDF 檔案實體
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 
   const monday = useMemo(() => {
     const today = new Date();
@@ -110,8 +110,8 @@ export default function StatsPage() {
 
   const reportTitle = filter === 'all' ? '總覽' : filter === 'personal' ? '個人報表' : '全家報表';
 
-  // ✅ 改寫：產生 PDF 後不直接存檔，而是打開下載視窗
-  const handleExportPDF = async () => {
+  // ✅ 改寫：產生 PDF 後，儲存進狀態中並開啟彈窗
+  const handleGeneratePDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
 
@@ -135,17 +135,44 @@ export default function StatsPage() {
 
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
-      const pdfBlob = pdf.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      
-      // 將產生好的網址存起來，畫面會自動彈出下載視窗
-      setPdfUrl(url);
+      const blob = pdf.output('blob');
+      setPdfBlob(blob); // 儲存檔案實體
 
     } catch (error) {
       console.error('PDF 產生失敗:', error);
       alert('產生 PDF 失敗，請再試一次。');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // ✅ 終極殺手鐧：觸發手機系統原生分享選單
+  const handleNativeShare = async () => {
+    if (!pdfBlob) return;
+    const fileName = `${currentMonthStr}-${reportTitle}報表.pdf`;
+    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+    // 判斷手機是否支援原生分享檔案
+    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfFile],
+          title: fileName,
+        });
+        return; // 成功呼叫原生選單，結束函式
+      } catch (error) {
+        console.log('使用者取消或分享失敗', error);
+      }
+    } else {
+      // 電腦版或極端舊版瀏覽器的備用下載法
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.open(url, '_blank'), 100);
     }
   };
 
@@ -162,7 +189,7 @@ export default function StatsPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <h2 className="text-3xl font-black text-gray-800">{currentMonthStr} {reportTitle}</h2>
           <button 
-            onClick={handleExportPDF} 
+            onClick={handleGeneratePDF} 
             disabled={isDownloading} 
             className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-xl active:scale-95 transition-transform shadow-md print:hidden"
           >
@@ -262,35 +289,30 @@ export default function StatsPage() {
         )}
       </div>
 
-      {/* ✅ 新增：下載準備完成的彈出視窗 */}
-      {pdfUrl && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-sm flex flex-col items-center gap-5 text-center shadow-2xl">
-            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
-              <FileDown size={40} />
+      {/* ✅ 全新設計：針對 LINE 阻擋下載開發的「原生分享選單」 */}
+      {pdfBlob && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 transition-opacity">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm flex flex-col items-center gap-4 text-center shadow-2xl">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-1">
+              <Share size={36} className="-ml-1" />
             </div>
-            <h3 className="text-2xl font-black text-gray-800">報表準備就緒！</h3>
-            <p className="text-gray-600 text-base mb-2 font-bold leading-relaxed">
-              如果您正在使用 LINE 開啟，可能會無法直接下載。請點擊右上角「⋮」，選擇<strong className="text-red-500 text-lg">「以預設瀏覽器開啟」</strong>（Safari / Chrome）即可順利下載。
+            <h3 className="text-2xl font-black text-gray-800">報表製作完成！</h3>
+            <p className="text-gray-500 text-sm font-bold leading-relaxed px-2">
+              為突破 LINE 的瀏覽限制，請點擊下方按鈕，選擇<strong className="text-blue-600">「儲存到檔案」</strong>，或直接分享給親友。
             </p>
             
-            {/* 實體 <a> 標籤強制觸發下載 */}
-            <a 
-              href={pdfUrl} 
-              download={`${currentMonthStr}-${reportTitle}.pdf`}
-              className="w-full bg-blue-600 text-white font-bold text-xl py-4 rounded-xl flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-lg"
+            <button 
+              onClick={handleNativeShare}
+              className="w-full bg-blue-600 text-white font-black text-xl py-4 rounded-xl flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-lg mt-2"
             >
-              點此儲存 PDF 檔案
-            </a>
+              <Share size={24} /> 開啟儲存 / 分享選單
+            </button>
             
             <button 
-              onClick={() => {
-                setPdfUrl(null);
-                URL.revokeObjectURL(pdfUrl);
-              }}
-              className="w-full bg-gray-100 text-gray-600 font-bold text-xl py-4 rounded-xl mt-2 active:scale-95 transition-transform"
+              onClick={() => setPdfBlob(null)}
+              className="w-full bg-gray-100 text-gray-600 font-bold text-lg py-4 rounded-xl mt-1 active:scale-95 transition-transform"
             >
-              關閉
+              取消
             </button>
           </div>
         </div>
