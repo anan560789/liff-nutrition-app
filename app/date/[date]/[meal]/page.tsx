@@ -45,7 +45,6 @@ export default function MealRecordPage() {
   return (
     <main className="min-h-screen bg-gray-50 block w-full max-w-md mx-auto shadow-lg">
       <header className="bg-white p-4 flex items-center justify-center shadow-sm relative w-full">
-        {/* 加入「返回」文字 */}
         <button type="button" onClick={() => router.back()} className="absolute left-2 p-2 text-gray-500 hover:bg-gray-100 rounded-lg flex items-center gap-1">
           <ChevronLeft size={24} /> <span className="text-base font-bold">返回</span>
         </button>
@@ -54,7 +53,6 @@ export default function MealRecordPage() {
         </h1>
       </header>
 
-      {/* 強制 w-full 與 px-4 */}
       <div className="w-full px-4 py-4">
         
         {/* 雙切換按鈕 */}
@@ -81,27 +79,33 @@ export default function MealRecordPage() {
 
         {/* 表單區塊 */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
-          <div className="flex gap-4 w-full">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-gray-700 font-bold text-lg">名字</label>
-              <input name="personName" type="text" defaultValue="Jasmine" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+          
+          {/* 💡 這裡就是你找不到的判斷式，現在已經加進來了！ */}
+          {/* 只有當 recordType 是 'personal' 時，才會渲染這個 div */}
+          {recordType === 'personal' && (
+            <div className="flex gap-4 w-full">
+              <div className="flex-1 flex flex-col gap-2">
+                <label className="text-gray-700 font-bold text-lg">名字</label>
+                <input name="personName" type="text" defaultValue="Jasmine" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+              </div>
+              <div className="flex-1 flex flex-col gap-2">
+                <label className="text-gray-700 font-bold text-lg">年齡</label>
+                <input name="personAge" type="number" defaultValue="50" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+              </div>
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-gray-700 font-bold text-lg">年齡</label>
-              <input name="personAge" type="number" defaultValue="50" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
-            </div>
-          </div>
+          )}
+
           <div className="flex flex-col gap-2 w-full">
             <label className="text-gray-700 font-bold text-lg">這餐吃了什麼？</label>
-            <textarea name="foodText" required placeholder="例如：黑鮪魚壽司..." className="w-full border border-gray-300 rounded-xl h-32 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+            <textarea name="foodText" required placeholder="例如：黑鮪魚壽司..." className="w-full border border-gray-300 rounded-xl h-32 px-4 py-3 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
           <div className="flex flex-col gap-2 w-full">
             <label className="text-gray-700 font-bold text-lg">備註</label>
-            <textarea name="notes" placeholder="例如：飯少..." className="w-full border border-gray-300 rounded-xl h-24 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+            <textarea name="notes" placeholder="例如：飯少..." className="w-full border border-gray-300 rounded-xl h-24 px-4 py-3 resize-none focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
           <div className="flex flex-col gap-2 w-full">
             <label className="text-gray-700 font-bold text-lg">花費金額 (元)</label>
-            <input name="cost" type="number" required placeholder="例如：150" className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
+            <input name="cost" type="number" required placeholder="例如：150" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 outline-none shadow-sm" />
           </div>
           <button 
             type="submit" 
