@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 
-export const runtime = 'edge';
-
 export default function HomePage() {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -16,7 +14,6 @@ export default function HomePage() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   
-  // 建立日曆陣列
   const days = Array(firstDayOfMonth).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
 
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
@@ -35,10 +32,9 @@ export default function HomePage() {
   };
 
   return (
-    // 徹底拔除 max-w-md 限制，改為 w-full 滿版
-    <main className="min-h-screen bg-gray-50 flex flex-col w-full">
+    <main className="min-h-screen bg-gray-50 flex flex-col w-full pb-10">
       
-      {/* 頂部 Header - 字體放大到 text-3xl */}
+      {/* 頂部 Header */}
       <header className="bg-white px-4 py-6 flex items-center justify-between shadow-sm w-full">
         <h1 className="text-3xl sm:text-4xl font-black text-gray-800 tracking-wide flex-1">
           Jasmine專屬飲食紀錄
@@ -51,7 +47,7 @@ export default function HomePage() {
         </button>
       </header>
 
-      {/* 月份切換區 - 按鈕與字體巨量放大 */}
+      {/* 月份切換 */}
       <div className="flex justify-between items-center bg-white px-6 py-6 mt-2 shadow-sm w-full">
         <button onClick={handlePrevMonth} className="p-4 text-gray-500 hover:bg-gray-100 rounded-full active:scale-95 transition-transform">
           <ChevronLeft size={44} strokeWidth={2.5} />
@@ -64,7 +60,7 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* 日曆方框 - 滿版寬度 */}
+      {/* 日曆方塊 */}
       <div className="flex-1 w-full bg-white px-2 py-4 mt-2 shadow-sm">
         <div className="grid grid-cols-7 gap-2 mb-4 w-full">
           {['日', '一', '二', '三', '四', '五', '六'].map((d) => (
