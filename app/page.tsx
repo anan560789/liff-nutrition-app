@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, BarChart3, Loader2 } from 'lucide-react';
 
-export const runtime = 'edge';
-
 export default function HomePage() {
   const router = useRouter();
   
