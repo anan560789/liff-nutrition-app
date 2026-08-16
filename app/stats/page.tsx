@@ -67,31 +67,24 @@ export default function StatsPage() {
     }
   };
 
-  // ✅ 新增：將個人營養攝取「按名字」分類加總
   const personalWeeklyStats: Record<string, {calories: number, protein: number, carbs: number, fat: number, fiber: number}> = {};
-  let genericWeekNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }; // 用於 AI 請求
-  
-  // ✅ 新增：計算全家本月總花費
+  let genericWeekNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }; 
   let familyMonthlyTotal = 0;
-  
   let monthTotal = 0;
   let weekTotal = 0;
 
   meals.forEach(meal => {
     const cost = meal.cost || 0;
     
-    // 總覽統計
     if (filter === 'all' || meal.record_type === filter) {
       monthTotal += cost;
       if (new Date(meal.date) >= monday) weekTotal += cost;
     }
 
-    // 全家本月總計
     if (meal.record_type === 'family') {
       familyMonthlyTotal += cost;
     }
 
-    // 個人本週分類統計
     if (meal.record_type === 'personal' && new Date(meal.date) >= monday) {
       const name = meal.person_name || '個人';
       if (!personalWeeklyStats[name]) personalWeeklyStats[name] = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
@@ -136,6 +129,9 @@ export default function StatsPage() {
     if (!reportRef.current) return;
     setIsDownloading(true);
 
+    // 💡 給予 React 150 毫秒的時間重新渲染畫面，讓按鈕有時間被隱藏起來
+    await new Promise(resolve => setTimeout(resolve, 150));
+
     try {
       const htmlToImage = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
@@ -143,28 +139,30 @@ export default function StatsPage() {
       const dataUrl = await htmlToImage.toPng(reportRef.current, {
         quality: 1,
         pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#f9fafb'
       });
 
       const img = new window.Image();
       img.src = dataUrl;
       await new Promise((resolve) => { img.onload = resolve; });
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (img.height * pdfWidth) / img.width;
+      // 💡 關鍵修正：放棄固定 A4 尺寸，將 PDF 畫布大小完全貼齊內容長度！
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [img.width, img.height] 
+      });
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
       setPdfBlob(pdf.output('blob'));
 
     } catch (error) {
       alert('產生 PDF 失敗。');
     } finally {
-      setIsDownloading(false);
+      setIsDownloading(false); // 產出完成，恢復顯示按鈕
     }
   };
 
-  // ✅ 修正：分享成功或取消後，自動關閉彈出視窗 (setPdfBlob(null))
   const handleNativeShare = async () => {
     if (!pdfBlob) return;
     const fileName = `${currentMonthStr}-${reportTitle}報表.pdf`;
@@ -173,9 +171,9 @@ export default function StatsPage() {
     if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
       try {
         await navigator.share({ files: [pdfFile], title: fileName });
-        setPdfBlob(null); // 分享成功，關閉視窗
+        setPdfBlob(null);
       } catch (error) {
-        setPdfBlob(null); // 取消分享，一樣關閉視窗
+        setPdfBlob(null);
       }
     } else {
       const url = URL.createObjectURL(pdfBlob);
@@ -187,7 +185,7 @@ export default function StatsPage() {
       document.body.removeChild(link);
       setTimeout(() => {
         window.open(url, '_blank');
-        setPdfBlob(null); // 下載完畢，關閉視窗
+        setPdfBlob(null);
       }, 100);
     }
   };
@@ -210,27 +208,28 @@ export default function StatsPage() {
             className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-800 text-white px-6 py-4 rounded-xl font-bold text-xl active:scale-95 transition-transform shadow-md print:hidden"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={28} /> : <FileDown size={28} />}
-            {isDownloading ? '產生 PDF 中...' : '產生報表 PDF'}
+            {isDownloading ? '製作完美報表中...' : '產生報表 PDF'}
           </button>
         </div>
 
-        <div className="flex bg-gray-200 rounded-xl p-1 mb-6 shadow-inner w-full print:hidden">
-          <button onClick={() => setFilter('all')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'all' ? 'bg-white text-gray-800 shadow-md' : 'text-gray-500'}`}><List size={18} /> 總覽</button>
-          <button onClick={() => setFilter('personal')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'personal' ? 'bg-white text-green-700 shadow-md' : 'text-gray-500'}`}><User size={18} /> 個人</button>
-          <button onClick={() => setFilter('family')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'family' ? 'bg-white text-blue-700 shadow-md' : 'text-gray-500'}`}><Users size={18} /> 全家</button>
-        </div>
+        {!isDownloading && (
+          <div className="flex bg-gray-200 rounded-xl p-1 mb-6 shadow-inner w-full print:hidden">
+            <button onClick={() => setFilter('all')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'all' ? 'bg-white text-gray-800 shadow-md' : 'text-gray-500'}`}><List size={18} /> 總覽</button>
+            <button onClick={() => setFilter('personal')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'personal' ? 'bg-white text-green-700 shadow-md' : 'text-gray-500'}`}><User size={18} /> 個人</button>
+            <button onClick={() => setFilter('family')} className={`flex-1 flex items-center justify-center gap-1 py-3 rounded-lg text-base font-bold transition-all ${filter === 'family' ? 'bg-white text-blue-700 shadow-md' : 'text-gray-500'}`}><Users size={18} /> 全家</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-500" size={40} /></div>
         ) : (
-          /* 📥 下方是準備被轉成 PDF 的畫布區塊 */
-          <div ref={reportRef} className="w-full bg-white p-4">
+          <div ref={reportRef} className="w-full bg-gray-50 p-2">
             
             <div className="text-center mb-6">
               <h2 className="text-3xl font-black text-gray-800">{currentMonthStr} {reportTitle}</h2>
             </div>
 
-            {/* 🔴 模式 1：個人報表專屬排版 */}
+            {/* 🔴 模式 1：個人報表 */}
             {filter === 'personal' && (
               <div className="flex flex-col gap-6">
                 {Object.keys(personalWeeklyStats).length === 0 ? (
@@ -251,15 +250,16 @@ export default function StatsPage() {
                 )}
 
                 <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 shadow-sm mb-4">
-                  <div data-html2canvas-ignore>
+                  {/* 💡 匯出 PDF 時隱藏分析按鈕 */}
+                  {!isDownloading && (
                     <button onClick={getAIAdvice} disabled={loadingAdvice} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2 active:scale-95 transition-colors">
                       {loadingAdvice ? <Loader2 className="animate-spin" size={24} /> : <BrainCircuit size={24} />}
                       分析本週營養建議
                     </button>
-                  </div>
+                  )}
                   {advice && (
-                    <div className="mt-4 p-5 bg-indigo-50 border border-indigo-100 text-indigo-900 rounded-xl text-base font-bold leading-relaxed shadow-sm">
-                      <h4 className="flex items-center gap-2 mb-2 text-indigo-700"><BrainCircuit size={22}/> AI 營養師建議：</h4>
+                    <div className={`p-5 bg-indigo-50 border border-indigo-100 text-indigo-900 rounded-xl text-base font-bold leading-relaxed shadow-sm ${!isDownloading ? 'mt-4' : ''}`}>
+                      <h4 className="flex items-center gap-2 mb-3 text-indigo-700"><BrainCircuit size={22}/> AI 營養師建議：</h4>
                       {advice}
                     </div>
                   )}
@@ -267,7 +267,7 @@ export default function StatsPage() {
               </div>
             )}
 
-            {/* 🔴 模式 2：全家報表專屬排版 */}
+            {/* 🔴 模式 2：全家報表 */}
             {filter === 'family' && (
               <div className="flex flex-col gap-6">
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center shadow-sm">
@@ -295,7 +295,10 @@ export default function StatsPage() {
                               <span className="font-bold text-gray-800">{meal.food_text}</span>
                               <span className="font-black text-lg text-red-500 mt-1">${meal.cost || 0}</span>
                            </div>
-                           <button data-html2canvas-ignore onClick={() => handleDelete(meal.id)} className="ml-auto text-gray-300 hover:text-red-500 p-2"><Trash2 size={20}/></button>
+                           {/* 💡 匯出 PDF 時隱藏刪除按鈕 */}
+                           {!isDownloading && (
+                             <button onClick={() => handleDelete(meal.id)} className="ml-auto text-gray-300 hover:text-red-500 p-2"><Trash2 size={20}/></button>
+                           )}
                         </div>
                       ))
                     )}
