@@ -18,8 +18,6 @@ export default function StatsPage() {
 
   const reportRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  
-  // ✅ 新增：用來儲存產生好的 PDF 檔案實體
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 
   const monday = useMemo(() => {
@@ -69,24 +67,48 @@ export default function StatsPage() {
     }
   };
 
-  const filteredMeals = meals.filter(meal => filter === 'all' || meal.record_type === filter);
-
+  // ✅ 新增：將個人營養攝取「按名字」分類加總
+  const personalWeeklyStats: Record<string, {calories: number, protein: number, carbs: number, fat: number, fiber: number}> = {};
+  let genericWeekNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }; // 用於 AI 請求
+  
+  // ✅ 新增：計算全家本月總花費
+  let familyMonthlyTotal = 0;
+  
   let monthTotal = 0;
   let weekTotal = 0;
-  let weekNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
 
-  filteredMeals.forEach(meal => {
+  meals.forEach(meal => {
     const cost = meal.cost || 0;
-    monthTotal += cost;
-    const isThisWeek = new Date(meal.date) >= monday;
-    if (isThisWeek) weekTotal += cost;
+    
+    // 總覽統計
+    if (filter === 'all' || meal.record_type === filter) {
+      monthTotal += cost;
+      if (new Date(meal.date) >= monday) weekTotal += cost;
+    }
 
-    if (isThisWeek && meal.record_type === 'personal' && meal.nutrients) {
-      weekNutrition.calories += meal.nutrients.calories || 0;
-      weekNutrition.protein += meal.nutrients.protein || 0;
-      weekNutrition.carbs += meal.nutrients.carbs || 0;
-      weekNutrition.fat += meal.nutrients.fat || 0;
-      weekNutrition.fiber += meal.nutrients.fiber || 0;
+    // 全家本月總計
+    if (meal.record_type === 'family') {
+      familyMonthlyTotal += cost;
+    }
+
+    // 個人本週分類統計
+    if (meal.record_type === 'personal' && new Date(meal.date) >= monday) {
+      const name = meal.person_name || '個人';
+      if (!personalWeeklyStats[name]) personalWeeklyStats[name] = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+      
+      if (meal.nutrients) {
+        personalWeeklyStats[name].calories += meal.nutrients.calories || 0;
+        personalWeeklyStats[name].protein += meal.nutrients.protein || 0;
+        personalWeeklyStats[name].carbs += meal.nutrients.carbs || 0;
+        personalWeeklyStats[name].fat += meal.nutrients.fat || 0;
+        personalWeeklyStats[name].fiber += meal.nutrients.fiber || 0;
+
+        genericWeekNutrition.calories += meal.nutrients.calories || 0;
+        genericWeekNutrition.protein += meal.nutrients.protein || 0;
+        genericWeekNutrition.carbs += meal.nutrients.carbs || 0;
+        genericWeekNutrition.fat += meal.nutrients.fat || 0;
+        genericWeekNutrition.fiber += meal.nutrients.fiber || 0;
+      }
     }
   });
 
@@ -97,12 +119,12 @@ export default function StatsPage() {
       const res = await fetch('/api/getAdvice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nutrition: weekNutrition })
+        body: JSON.stringify({ nutrition: genericWeekNutrition })
       });
       const data = await res.json();
       if (data.success) setAdvice(data.advice);
     } catch (err) {
-      alert('網路異常，無法取得建議');
+      alert('網路異常');
     } finally {
       setLoadingAdvice(false);
     }
@@ -110,7 +132,6 @@ export default function StatsPage() {
 
   const reportTitle = filter === 'all' ? '總覽' : filter === 'personal' ? '個人報表' : '全家報表';
 
-  // ✅ 改寫：產生 PDF 後，儲存進狀態中並開啟彈窗
   const handleGeneratePDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
@@ -122,7 +143,7 @@ export default function StatsPage() {
       const dataUrl = await htmlToImage.toPng(reportRef.current, {
         quality: 1,
         pixelRatio: 2,
-        backgroundColor: '#f9fafb'
+        backgroundColor: '#ffffff'
       });
 
       const img = new window.Image();
@@ -134,37 +155,29 @@ export default function StatsPage() {
       const pdfHeight = (img.height * pdfWidth) / img.width;
 
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      
-      const blob = pdf.output('blob');
-      setPdfBlob(blob); // 儲存檔案實體
+      setPdfBlob(pdf.output('blob'));
 
     } catch (error) {
-      console.error('PDF 產生失敗:', error);
-      alert('產生 PDF 失敗，請再試一次。');
+      alert('產生 PDF 失敗。');
     } finally {
       setIsDownloading(false);
     }
   };
 
-  // ✅ 終極殺手鐧：觸發手機系統原生分享選單
+  // ✅ 修正：分享成功或取消後，自動關閉彈出視窗 (setPdfBlob(null))
   const handleNativeShare = async () => {
     if (!pdfBlob) return;
     const fileName = `${currentMonthStr}-${reportTitle}報表.pdf`;
     const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-    // 判斷手機是否支援原生分享檔案
     if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
       try {
-        await navigator.share({
-          files: [pdfFile],
-          title: fileName,
-        });
-        return; // 成功呼叫原生選單，結束函式
+        await navigator.share({ files: [pdfFile], title: fileName });
+        setPdfBlob(null); // 分享成功，關閉視窗
       } catch (error) {
-        console.log('使用者取消或分享失敗', error);
+        setPdfBlob(null); // 取消分享，一樣關閉視窗
       }
     } else {
-      // 電腦版或極端舊版瀏覽器的備用下載法
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
@@ -172,7 +185,10 @@ export default function StatsPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setTimeout(() => window.open(url, '_blank'), 100);
+      setTimeout(() => {
+        window.open(url, '_blank');
+        setPdfBlob(null); // 下載完畢，關閉視窗
+      }, 100);
     }
   };
 
@@ -191,7 +207,7 @@ export default function StatsPage() {
           <button 
             onClick={handleGeneratePDF} 
             disabled={isDownloading} 
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-xl active:scale-95 transition-transform shadow-md print:hidden"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-800 text-white px-6 py-4 rounded-xl font-bold text-xl active:scale-95 transition-transform shadow-md print:hidden"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={28} /> : <FileDown size={28} />}
             {isDownloading ? '產生 PDF 中...' : '產生報表 PDF'}
@@ -207,89 +223,138 @@ export default function StatsPage() {
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-500" size={40} /></div>
         ) : (
-          <div ref={reportRef} className="w-full bg-gray-50 p-2">
+          /* 📥 下方是準備被轉成 PDF 的畫布區塊 */
+          <div ref={reportRef} className="w-full bg-white p-4">
             
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
-                <span className="text-base font-bold text-gray-500 mb-2">本週花費</span>
-                <span className="text-4xl font-black text-green-600">${weekTotal}</span>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
-                <span className="text-base font-bold text-gray-500 mb-2">本月總花費</span>
-                <span className="text-4xl font-black text-blue-600">${monthTotal}</span>
-              </div>
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-black text-gray-800">{currentMonthStr} {reportTitle}</h2>
             </div>
 
-            {(filter === 'all' || filter === 'personal') && (
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-5">本週營養攝取總和 (個人)</h3>
-                <div className="flex flex-col gap-4 mb-6">
-                  <div className="flex justify-between text-base font-bold text-gray-600"><span>🔥 熱量</span><span>{weekNutrition.calories} kcal</span></div>
-                  <div className="flex justify-between text-base font-bold text-blue-600"><span>🥩 蛋白質</span><span>{weekNutrition.protein} g</span></div>
-                  <div className="flex justify-between text-base font-bold text-orange-500"><span>🍚 碳水</span><span>{weekNutrition.carbs} g</span></div>
-                  <div className="flex justify-between text-base font-bold text-yellow-500"><span>🥑 脂肪</span><span>{weekNutrition.fat} g</span></div>
-                  <div className="flex justify-between text-base font-bold text-green-600"><span>🥦 纖維</span><span>{weekNutrition.fiber} g</span></div>
-                </div>
-                <div data-html2canvas-ignore>
-                  <button onClick={getAIAdvice} disabled={loadingAdvice} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2 hover:bg-indigo-100 transition-colors">
-                    {loadingAdvice ? <Loader2 className="animate-spin" size={24} /> : <BrainCircuit size={24} />}
-                    分析本週營養建議
-                  </button>
-                  {advice && <div className="mt-4 p-5 bg-indigo-600 text-white rounded-xl text-base leading-relaxed shadow-inner">{advice}</div>}
-                </div>
-              </div>
-            )}
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
-              <div className="bg-gray-800 text-white p-4 font-bold flex justify-between text-lg">
-                <span>日期與餐別</span>
-                <span>金額</span>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {filteredMeals.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400 font-bold text-lg">無紀錄</div>
+            {/* 🔴 模式 1：個人報表專屬排版 */}
+            {filter === 'personal' && (
+              <div className="flex flex-col gap-6">
+                {Object.keys(personalWeeklyStats).length === 0 ? (
+                  <div className="text-center text-gray-400 font-bold p-8 text-lg">本週尚無個人營養紀錄</div>
                 ) : (
-                  filteredMeals.map((meal) => (
-                    <div key={meal.id} className="p-5 flex flex-col gap-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-gray-800 text-lg">{meal.date}</span>
-                          <span className="text-base font-bold bg-gray-100 text-gray-600 px-3 py-1 rounded-md">
-                            {meal.meal_type === 'breakfast' ? '早餐' : meal.meal_type === 'lunch' ? '午餐' : '晚餐'}
-                          </span>
-                          {filter === 'all' && (
-                            <span className={`text-sm font-bold px-3 py-1 rounded-md text-white ${meal.record_type === 'personal' ? 'bg-green-500' : 'bg-blue-500'}`}>
-                              {meal.record_type === 'personal' ? '個人專屬' : '全家紀錄'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="font-black text-xl text-gray-800">${meal.cost || 0}</span>
-                          <button 
-                            data-html2canvas-ignore
-                            onClick={() => handleDelete(meal.id)}
-                            className="text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 size={24} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="text-gray-600 text-base">
-                        {meal.record_type === 'personal' && <span className="font-bold">{meal.person_name}: </span>}
-                        {meal.food_text}
-                        {meal.notes && <div className="text-gray-400 text-sm mt-1">備註: {meal.notes}</div>}
+                  Object.entries(personalWeeklyStats).map(([name, stats]) => (
+                    <div key={name} className="bg-white p-6 rounded-2xl border-2 border-gray-100 shadow-sm">
+                      <h3 className="text-xl font-bold text-gray-800 mb-5">{name} 的本週營養攝取</h3>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex justify-between text-base font-bold text-gray-600"><span>🔥 熱量</span><span>{stats.calories} kcal</span></div>
+                        <div className="flex justify-between text-base font-bold text-blue-600"><span>🥩 蛋白質</span><span>{stats.protein} g</span></div>
+                        <div className="flex justify-between text-base font-bold text-orange-500"><span>🍚 碳水</span><span>{stats.carbs} g</span></div>
+                        <div className="flex justify-between text-base font-bold text-yellow-500"><span>🥑 脂肪</span><span>{stats.fat} g</span></div>
+                        <div className="flex justify-between text-base font-bold text-green-600"><span>🥦 纖維</span><span>{stats.fiber} g</span></div>
                       </div>
                     </div>
                   ))
                 )}
-              </div>
-            </div>
 
+                <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 shadow-sm mb-4">
+                  <div data-html2canvas-ignore>
+                    <button onClick={getAIAdvice} disabled={loadingAdvice} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2 active:scale-95 transition-colors">
+                      {loadingAdvice ? <Loader2 className="animate-spin" size={24} /> : <BrainCircuit size={24} />}
+                      分析本週營養建議
+                    </button>
+                  </div>
+                  {advice && (
+                    <div className="mt-4 p-5 bg-indigo-50 border border-indigo-100 text-indigo-900 rounded-xl text-base font-bold leading-relaxed shadow-sm">
+                      <h4 className="flex items-center gap-2 mb-2 text-indigo-700"><BrainCircuit size={22}/> AI 營養師建議：</h4>
+                      {advice}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 🔴 模式 2：全家報表專屬排版 */}
+            {filter === 'family' && (
+              <div className="flex flex-col gap-6">
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center shadow-sm">
+                   <span className="text-base font-bold text-blue-600 mb-2 block">本月全家加總花費</span>
+                   <span className="text-5xl font-black text-blue-700">${familyMonthlyTotal}</span>
+                </div>
+                
+                <div className="bg-white rounded-2xl border-2 border-gray-100 shadow-sm overflow-hidden w-full">
+                  <div className="bg-gray-800 text-white p-4 font-bold flex justify-between text-base">
+                    <span className="w-1/4 text-center">日期</span>
+                    <span className="w-1/4 text-center">餐別</span>
+                    <span className="w-2/4">內容與金額</span>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {meals.filter(m => m.record_type === 'family').length === 0 ? (
+                       <div className="p-8 text-center text-gray-400 font-bold text-lg">尚無全家紀錄</div>
+                    ) : (
+                      meals.filter(m => m.record_type === 'family').map((meal) => (
+                        <div key={meal.id} className="p-4 flex gap-2 items-center">
+                           <span className="w-1/4 text-center font-bold text-gray-800 text-sm">{meal.date.substring(5)}</span>
+                           <span className="w-1/4 text-center text-sm font-bold bg-blue-100 text-blue-700 py-1.5 rounded-md">
+                             {meal.meal_type === 'breakfast' ? '早餐' : meal.meal_type === 'lunch' ? '午餐' : '晚餐'}
+                           </span>
+                           <div className="w-2/4 flex flex-col pl-3 border-l border-gray-100">
+                              <span className="font-bold text-gray-800">{meal.food_text}</span>
+                              <span className="font-black text-lg text-red-500 mt-1">${meal.cost || 0}</span>
+                           </div>
+                           <button data-html2canvas-ignore onClick={() => handleDelete(meal.id)} className="ml-auto text-gray-300 hover:text-red-500 p-2"><Trash2 size={20}/></button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 🔴 模式 3：預設總覽 */}
+            {filter === 'all' && (
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 flex flex-col items-center justify-center">
+                    <span className="text-base font-bold text-gray-500 mb-2">本週花費</span>
+                    <span className="text-4xl font-black text-green-600">${weekTotal}</span>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 flex flex-col items-center justify-center">
+                    <span className="text-base font-bold text-gray-500 mb-2">本月總花費</span>
+                    <span className="text-4xl font-black text-blue-600">${monthTotal}</span>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden w-full">
+                  <div className="bg-gray-800 text-white p-4 font-bold flex justify-between text-base">
+                    <span>日期與餐別</span>
+                    <span>金額</span>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {meals.length === 0 ? (
+                      <div className="p-8 text-center text-gray-400 font-bold text-lg">無紀錄</div>
+                    ) : (
+                      meals.map((meal) => (
+                        <div key={meal.id} className="p-5 flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-gray-800 text-lg">{meal.date}</span>
+                              <span className="text-sm font-bold bg-gray-100 text-gray-600 px-3 py-1 rounded-md">
+                                {meal.meal_type === 'breakfast' ? '早餐' : meal.meal_type === 'lunch' ? '午餐' : '晚餐'}
+                              </span>
+                              <span className={`text-sm font-bold px-3 py-1 rounded-md text-white ${meal.record_type === 'personal' ? 'bg-green-500' : 'bg-blue-500'}`}>
+                                {meal.record_type === 'personal' ? '個人' : '全家'}
+                              </span>
+                            </div>
+                            <span className="font-black text-xl text-gray-800">${meal.cost || 0}</span>
+                          </div>
+                          <div className="text-gray-600 text-base">
+                            <span className="font-bold">{meal.person_name || '全家'}: </span>{meal.food_text}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* ✅ 全新設計：針對 LINE 阻擋下載開發的「原生分享選單」 */}
       {pdfBlob && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 transition-opacity">
           <div className="bg-white rounded-3xl p-8 w-full max-w-sm flex flex-col items-center gap-4 text-center shadow-2xl">
