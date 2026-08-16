@@ -2,42 +2,59 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BarChart3, Loader2 } from 'lucide-react';
 
 export const runtime = 'edge';
 
 export default function HomePage() {
   const router = useRouter();
-  const [currentDate, setCurrentDate] = useState(new Date());
   
-  // ✅ 新增：用來確保時間只在客戶端(手機)抓取，避免伺服器時差
+  // 為了避免雲端伺服器與台灣手機時區不一致導致畫面當機，
+  // 必須確保 mounted 後才開始畫日曆。
   const [mounted, setMounted] = useState(false);
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
+
   useEffect(() => {
+    // 只有在手機端 (Client) 執行時，才抓取正確的台灣時間
+    setCurrentDate(new Date());
     setMounted(true);
   }, []);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = new Date(year, month, 1).getDay();
-  
-  const days = Array(firstDayOfMonth).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
-
-  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const handlePrevMonth = () => {
+    if (currentDate) setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+  const handleNextMonth = () => {
+    if (currentDate) setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
   
   const handleDayClick = (day: number) => {
-    if (!day) return;
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (!day || !currentDate) return;
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     router.push(`/date/${dateStr}`);
   };
 
   const isToday = (day: number) => {
-    if (!mounted || !day) return false;
-    const today = new Date();
-    return today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+    if (!day || !currentDate) return false;
+    const realToday = new Date(); // 使用當下真實時間作比對
+    return realToday.getDate() === day && 
+           realToday.getMonth() === currentDate.getMonth() && 
+           realToday.getFullYear() === currentDate.getFullYear();
   };
+
+  // 如果還在確認時區，先顯示空白架構，避免崩潰
+  if (!mounted || !currentDate) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex flex-col w-full pb-10 justify-center items-center">
+         <Loader2 className="animate-spin text-green-500" size={48} />
+      </main>
+    );
+  }
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const days = Array(firstDayOfMonth).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col w-full pb-10">
